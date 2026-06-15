@@ -243,6 +243,25 @@ let voices = [];
 
 
 
+
+
+
+
+function existingStuff() {
+  // old app code
+}
+
+function startReading() {
+  // old app code
+}
+
+function stopReading() {
+  // old app code
+}
+
+/* paste Cell Overlap code here */
+
+
 function loadVoices() {
   voices = speechSynthesis.getVoices() || [];
   updateLanguageDropdowns();
