@@ -621,10 +621,58 @@ Upload
 
 
 
+<style>
+.reader-control--overlap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
 
+#cellOverlapSlider {
+  width: 140px;
+}
 
+#cellOverlapValue {
+  min-width: 3ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+  Keep your existing .reading styling.
+
+  Important:
+  Do NOT assume only one cell can have .reading.
+  Multiple cells may be active during overlap.
+*/
+
+/*
+Example only, if you do not already have this:
+*/
+.reading {
+  outline: 2px solid #3b82f6;
+  outline-offset: -2px;
+}
+   
 
 <div id="toolbar">
+
+<div class="reader-control reader-control--overlap">
+  <label for="cellOverlapSlider">Cell Overlap</label>
+
+  <input
+    id="cellOverlapSlider"
+    type="range"
+    min="0"
+    max="90"
+    step="1"
+    value="0"
+  />
+</style>
+   
+  <output id="cellOverlapValue" for="cellOverlapSlider">0%</output>
+</div>
+   
 <label>Speed <input id="speed" type="range" min="0.5" max="2" step="0.1" value="0.85"></label>
 <label>Repeat Row <input id="repeatRow" type="number" min="1" value="1"></label>
 <label>Repeat Table Loop <input id="repeatTable" type="number" min="1" value="1"></label>
@@ -634,6 +682,9 @@ Upload
 <label>Reverse Order <input id="reverse" type="checkbox"></label>
 </div>
 
+
+
+   
 <div id="sheetWrap">
   <table id="sheet"></table>
 </div>
