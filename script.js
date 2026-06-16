@@ -2033,5 +2033,21 @@ document.getElementById('cellOverlapSlider')?.addEventListener('input', function
 
 
 
+
+
+
+
+// ===============================
+// UPLOAD TABLE BUTTON EVENT
+// ===============================
+document.getElementById("uploadTableBtn").addEventListener("click", uploadTable);
+
+
+
    
-})();
+})();   
+
+
+
+// Make uploadTable globally accessible
+window.uploadTable = uploadTable;
