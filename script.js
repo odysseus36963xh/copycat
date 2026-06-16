@@ -1129,9 +1129,7 @@ async function startReading() {
               // - no audio was played
               // - language is not Off
               // - text exists
-              if (!mediaResult.hasAudio && lang !== "Off" && cleanText) {
-                await speak(cleanText, lang, getSpeed(), cell);
-              }
+            
                if (!mediaResult.hasAudio && lang !== "Off" && cleanText) {
 
   if (cellOverlapPercent <= 0) {
