@@ -260,9 +260,7 @@ function stopReading() {
   // old app code
 }
 (function wireCellOverlapSlider() {
-
   function setup() {
-
     const slider = document.getElementById('cellOverlapSlider');
     const value = document.getElementById('cellOverlapValue');
 
@@ -272,30 +270,28 @@ function stopReading() {
     }
 
     function update() {
-      cellOverlapPercent =
-        parseInt(slider.value, 10) || 0;
-
-      value.textContent =
-        cellOverlapPercent + '%';
+      cellOverlapPercent = parseInt(slider.value, 10) || 0;
+      value.textContent = cellOverlapPercent + '%';
+      
+      // Visual feedback on the slider
+      if (cellOverlapPercent > 0) {
+        slider.style.accentColor = '#ff6600';
+      } else {
+        slider.style.accentColor = '#1a73e8';
+      }
     }
 
     slider.addEventListener('input', update);
     slider.addEventListener('change', update);
-
     update();
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener(
-      'DOMContentLoaded',
-      setup
-    );
+    document.addEventListener('DOMContentLoaded', setup);
   } else {
     setup();
   }
-
 })();
-
 
 function loadVoices() {
   voices = speechSynthesis.getVoices() || [];
@@ -751,7 +747,11 @@ fileInput.addEventListener("change", function(e) {
 // ===============================
 // SPEAK FUNCTION
 // ===============================
-function speak(text, lang, rate,cell) {
+// ===============================
+// IMPROVED SPEAK FUNCTIONS
+// ===============================
+
+function speak(text, lang, rate, cell) {
   return new Promise(resolve => {
     if (!text || !text.trim()) return resolve();
 
@@ -762,52 +762,51 @@ function speak(text, lang, rate,cell) {
       utter.voice = voice;
       utter.lang = voice.lang;
     } else if (lang && lang !== "Off") {
-      utter.lang = LEGACY_LANG_MAP[lang] || lang;
+      utter.lang = lang;
     }
 
- utter.rate = rate || 1;
-utter.pitch = 1.05;
-    
- utter.onend = function() {
+    utter.rate = rate || 1;
+    utter.pitch = 1.05;
+
+    utter.onend = function() {
       incrementCellListenCount(cell);
       resolve();
     };
 
-    utter.onerror = resolve;
+    utter.onerror = function(event) {
+      console.error('Speech error:', event.error);
+      resolve();
+    };
 
+    // Cancel any previous speech before starting new one
+    speechSynthesis.cancel();
     speechSynthesis.speak(utter);
   });
 }
+
 function speakOverlap(text, lang, rate, cell) {
+  if (!text || !text.trim()) return;
 
-  if (!text || !text.trim()) {
-    return;
-  }
-
-  const utter =
-    new SpeechSynthesisUtterance(text);
-
+  const utter = new SpeechSynthesisUtterance(text);
   const voice = getVoice(lang);
 
   if (voice) {
     utter.voice = voice;
     utter.lang = voice.lang;
   } else if (lang && lang !== "Off") {
-    utter.lang =
-      LEGACY_LANG_MAP[lang] || lang;
+    utter.lang = lang;
   }
 
   utter.rate = rate || 1;
   utter.pitch = 1.05;
 
-  utter.onend = function () {
+  utter.onend = function() {
     incrementCellListenCount(cell);
   };
 
+  // Don't cancel - let overlap happen naturally
   speechSynthesis.speak(utter);
 }
-
-
 // ===============================
 // UI HELPERS
 // ===============================
@@ -1037,7 +1036,10 @@ function isVideoType(type) {
 // ===============================
 // ===============================
 // MAIN READING ENGINE
+// ===============================// ===============================
+// FIXED MAIN READING ENGINE
 // ===============================
+
 async function startReading() {
   if (isReading) return;
   isReading = true;
@@ -1053,6 +1055,7 @@ async function startReading() {
   const repeatRow = parseInt(document.getElementById("repeatRow")?.value || "1");
   const repeatTable = parseInt(document.getElementById("repeatTable")?.value || "1");
   const repeatCell = parseInt(document.getElementById("repeatCell")?.value || "1");
+  const overlap = cellOverlapPercent; // Get current overlap value
 
   const start = parseCell(document.getElementById("startCell")?.value) || { row: 1, col: 0 };
   const end = parseCell(document.getElementById("endCell")?.value) || { row: 26, col: 25 };
@@ -1103,67 +1106,67 @@ async function startReading() {
               hasMedia = false;
             }
 
-            /*
-              IMPORTANT LOGIC:
-
-              - If cell has media, allow it even if language is Off.
-              - If cell has no media and language is Off, skip it.
-              - If cell has no text and no media, skip it.
-            */
             if (lang === "Off" || (!hasMedia && !cleanText)) {
-            continue;
+              continue;
             }
 
             for (let rc = 0; rc < repeatCell; rc++) {
               if (!isReading) return;
 
+              // Clear previous highlights
+              clearHighlight();
+              
+              // Highlight current cell
               cell.classList.add("reading");
+
+              // If overlap is active, highlight previous and next cells too
+              if (overlap > 0 && colRange.length > 1) {
+                // Find the current index in the column range
+                let currentIndex = colRange.indexOf(c);
+                
+                // Highlight previous cell
+                if (currentIndex > 0) {
+                  let prevCol = colRange[currentIndex - 1];
+                  let prevCell = row.cells[prevCol + 1];
+                  if (prevCell) {
+                    prevCell.classList.add("reading");
+                  }
+                }
+                
+                // Highlight next cell
+                if (currentIndex < colRange.length - 1) {
+                  let nextCol = colRange[currentIndex + 1];
+                  let nextCell = row.cells[nextCol + 1];
+                  if (nextCell) {
+                    nextCell.classList.add("reading");
+                  }
+                }
+              }
 
               // 1. Play media and WAIT until audio finishes
               const mediaResult = await playCellMedia(cell);
 
               if (!isReading) return;
 
-              // 2. Only read text if:
-              // - no audio was played
-              // - language is not Off
-              // - text exists
-               if (!mediaResult.hasAudio && lang !== "Off" && cleanText) {
-
-  if (cellOverlapPercent <= 0) {
-
-    await speak(
-      cleanText,
-      lang,
-      getSpeed(),
-      cell
-    );
-
-  } else {
-
-    speakOverlap(
-      cleanText,
-      lang,
-      getSpeed(),
-      cell
-    );
-
-    const estimatedDuration =
-      Math.max(
-        250,
-        cleanText.length *
-        (65 / getSpeed())
-      );
-
-    const waitTime =
-      estimatedDuration *
-      (1 - cellOverlapPercent / 100);
-
-    await new Promise(resolve =>
-      setTimeout(resolve, waitTime)
-    );
-  }
-}
+              // 2. Handle speech with overlap
+              if (!mediaResult.hasAudio && lang !== "Off" && cleanText) {
+                if (overlap <= 0) {
+                  // Normal speech - wait for it to finish
+                  await speak(cleanText, lang, getSpeed(), cell);
+                } else {
+                  // OVERLAP MODE - speed up and overlap
+                  let overlapSpeed = getSpeed() * (1 + (overlap / 100));
+                  
+                  // Speak the current cell
+                  speakOverlap(cleanText, lang, overlapSpeed, cell);
+                  
+                  // Calculate how long to wait before moving to next cell
+                  const estimatedDuration = Math.max(250, cleanText.length * (65 / overlapSpeed));
+                  const waitTime = estimatedDuration * (1 - overlap / 100);
+                  
+                  await new Promise(resolve => setTimeout(resolve, waitTime));
+                }
+              }
 
               cell.classList.remove("reading");
 
@@ -1182,9 +1185,6 @@ async function startReading() {
     if (popup) popup.classList.remove("show");
   }
 }
-
-
-
 
 
 
@@ -1951,24 +1951,87 @@ document.getElementById("stopRecordBtn")?.addEventListener("click", stopRecordin
 
 
 // Sync practice visuals on page load
-(function syncInitialPracticeVisuals() {
-    var cells = document.querySelectorAll("td[contenteditable='true']");
-    for (var i = 0; i < cells.length; i++) {
-        var cell = cells[i];
-        // Ensure cell ID exists
-        if (!cell.dataset.cellId) {
-            var row = cell.closest("tr");
-            var rowIndex = row ? row.rowIndex - 2 : 0;
-            var colIndex = cell.cellIndex - 1;
-            cell.dataset.cellId = rowIndex + ":" + colIndex;
-        }
-        if (!cell.dataset.listenCount) {
-            cell.dataset.listenCount = "0";
-        }
-        if (!cell.classList.contains("practice-cell")) {
-            cell.classList.add("practice-cell");
-        }
-        updateCellPracticeColor(cell);
-        updateCellPracticeBadge(cell);
+// ===============================
+// VISUAL OVERLAP INDICATOR
+// ===============================
+
+// Add CSS for visual overlap feedback
+const overlapStyle = document.createElement('style');
+overlapStyle.textContent = `
+  .reading {
+    outline: 3px solid #1a73e8 !important;
+    outline-offset: -3px !important;
+    background-color: rgba(26, 115, 232, 0.1) !important;
+    transition: all 0.2s ease;
+  }
+  
+  /* When overlap is active, show gradient effect */
+  .reading.overlap-prev {
+    outline-color: #ff6600 !important;
+    background-color: rgba(255, 102, 0, 0.05) !important;
+  }
+  
+  .reading.overlap-next {
+    outline-color: #00c853 !important;
+    background-color: rgba(0, 200, 83, 0.05) !important;
+  }
+  
+  #cellOverlapSlider {
+    transition: accent-color 0.3s;
+  }
+  
+  #cellOverlapValue {
+    font-weight: bold;
+    color: #1a73e8;
+    transition: color 0.3s;
+  }
+  
+  .overlap-active #cellOverlapValue {
+    color: #ff6600;
+  }
+`;
+document.head.appendChild(overlapStyle);
+
+// Add indicator to show when overlap is active
+const overlapIndicator = document.createElement('div');
+overlapIndicator.id = 'overlapIndicator';
+overlapIndicator.style.cssText = `
+  display: inline-block;
+  margin-left: 10px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: bold;
+  background: #ff6600;
+  color: white;
+  opacity: 0;
+  transition: opacity 0.3s;
+`;
+
+// Add indicator next to the slider if it exists
+const sliderContainer = document.querySelector('#cellOverlapSlider')?.closest('label, div');
+if (sliderContainer) {
+  sliderContainer.appendChild(overlapIndicator);
+}
+
+// Update indicator when slider changes
+document.getElementById('cellOverlapSlider')?.addEventListener('input', function() {
+  const indicator = document.getElementById('overlapIndicator');
+  if (indicator) {
+    const val = parseInt(this.value);
+    if (val > 0) {
+      indicator.textContent = `OVERLAP ${val}%`;
+      indicator.style.opacity = '1';
+      document.body.classList.add('overlap-active');
+    } else {
+      indicator.style.opacity = '0';
+      document.body.classList.remove('overlap-active');
     }
+  }
+});
+
+
+
+
+   
 })();
