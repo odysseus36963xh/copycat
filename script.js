@@ -3,6 +3,7 @@
 // ===============================
 let isReading = false;
 let voices = [];
+let cellOverlapPercent = 0;
 
 
 
@@ -258,8 +259,42 @@ function startReading() {
 function stopReading() {
   // old app code
 }
+(function wireCellOverlapSlider() {
 
-/* paste Cell Overlap code here */
+  function setup() {
+
+    const slider = document.getElementById('cellOverlapSlider');
+    const value = document.getElementById('cellOverlapValue');
+
+    if (!slider || !value) {
+      console.warn('Overlap slider not found');
+      return;
+    }
+
+    function update() {
+      cellOverlapPercent =
+        parseInt(slider.value, 10) || 0;
+
+      value.textContent =
+        cellOverlapPercent + '%';
+    }
+
+    slider.addEventListener('input', update);
+    slider.addEventListener('change', update);
+
+    update();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener(
+      'DOMContentLoaded',
+      setup
+    );
+  } else {
+    setup();
+  }
+
+})();
 
 
 function loadVoices() {
@@ -743,7 +778,34 @@ utter.pitch = 1.05;
     speechSynthesis.speak(utter);
   });
 }
+function speakOverlap(text, lang, rate, cell) {
 
+  if (!text || !text.trim()) {
+    return;
+  }
+
+  const utter =
+    new SpeechSynthesisUtterance(text);
+
+  const voice = getVoice(lang);
+
+  if (voice) {
+    utter.voice = voice;
+    utter.lang = voice.lang;
+  } else if (lang && lang !== "Off") {
+    utter.lang =
+      LEGACY_LANG_MAP[lang] || lang;
+  }
+
+  utter.rate = rate || 1;
+  utter.pitch = 1.05;
+
+  utter.onend = function () {
+    incrementCellListenCount(cell);
+  };
+
+  speechSynthesis.speak(utter);
+}
 
 
 // ===============================
@@ -1066,9 +1128,42 @@ async function startReading() {
               // - no audio was played
               // - language is not Off
               // - text exists
-              if (!mediaResult.hasAudio && lang !== "Off" && cleanText) {
-                await speak(cleanText, lang, getSpeed(), cell);
-              }
+               if (!mediaResult.hasAudio && lang !== "Off" && cleanText) {
+
+  if (cellOverlapPercent <= 0) {
+
+    await speak(
+      cleanText,
+      lang,
+      getSpeed(),
+      cell
+    );
+
+  } else {
+
+    speakOverlap(
+      cleanText,
+      lang,
+      getSpeed(),
+      cell
+    );
+
+    const estimatedDuration =
+      Math.max(
+        250,
+        cleanText.length *
+        (65 / getSpeed())
+      );
+
+    const waitTime =
+      estimatedDuration *
+      (1 - cellOverlapPercent / 100);
+
+    await new Promise(resolve =>
+      setTimeout(resolve, waitTime)
+    );
+  }
+}
 
               cell.classList.remove("reading");
 
